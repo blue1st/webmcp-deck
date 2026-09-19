@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gadget Hub - ガジェット専門ストア (WebMCP Enabled)</title>
+  <style>
+    :root {
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --border: #cbd5e1;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      background: #1e1b4b;
+      color: white;
+      padding: 1.25rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .cart-badge {
+      background: #ef4444;
+      color: white;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 9999px;
+      margin-left: 0.4rem;
+    }
+    main {
+      max-width: 1000px;
+      margin: 1.5rem auto;
+      padding: 0 1.5rem;
+    }
+    .search-bar {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      background: white;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    input, select {
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: var(--primary-hover); }
+    .products-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1.25rem;
+    }
+    .product-card {
+      background: white;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+    }
+    .product-img {
+      font-size: 3rem;
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+    .product-title {
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+      font-size: 1rem;
+    }
+    .product-price {
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 1.15rem;
+      margin-bottom: 0.75rem;
+    }
+    .cart-drawer {
+      background: #e0e7ff;
+      border: 1px solid #c7d2fe;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <span style="font-weight: 800; font-size: 1.25rem;">⚡ Gadget Hub</span>
+      <span style="margin-left: 0.5rem; font-size: 0.75rem; background: #4338ca; padding: 0.2rem 0.6rem; border-radius: 9999px;">WebMCP Ready</span>
+    </div>
+    <div>
+      カート: <span id="cartCount" class="cart-badge">0</span> 点
+    </div>
+  </header>
+
+  <main>
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="ガジェット名で検索 (例: USB-C, キーボード)" style="flex: 1;">
+      <select id="categoryFilter">
+        <option value="">全カテゴリー</option>
+        <option value="accessories">アクセサリー</option>
+        <option value="audio">オーディオ</option>
+        <option value="input">キーボード/マウス</option>
+      </select>
+      <button onclick="handleSearch()">検索</button>
+    </div>
+
+    <div class="products-grid" id="productsGrid"></div>
+
+    <div class="cart-drawer" id="cartSection">
+      <h3 style="margin-bottom: 0.5rem;">🛒 現在のカート内容</h3>
+      <ul id="cartItemsList" style="margin-left: 1.2rem; margin-bottom: 0.75rem; font-size: 0.9rem;">
+        <li>カートは空です</li>
+      </ul>
+      <button onclick="checkout()" style="background: #10b981;">注文手続きへ進む (Checkout)</button>
+    </div>
+  </main>
+
+  <script>
+    const products = [
+      { id: "p_hub", name: "10-in-1 USB-C Hub 4K", category: "accessories", price: 5980, icon: "🔌" },
+      { id: "p_mech_kb", name: "ワイヤレス メカニカルキーボード (赤軸)", category: "input", price: 14800, icon: "⌨️" },
+      { id: "p_anc_buds", name: "ANC搭載 完全ワイヤレスイヤホン Pro", category: "audio", price: 18900, icon: "🎧" },
+      { id: "p_ergo_mouse", name: "人間工学 エルゴノミクスマウス", category: "input", price: 6800, icon: "🖱️" },
+      { id: "p_gan_charger", name: "100W GaN 急速充電器 3ポート", category: "accessories", price: 4980, icon: "⚡" }
+    ];
+
+    let cart = [];
+
+    function renderProducts(items) {
+      const grid = document.getElementById('productsGrid');
+      grid.innerHTML = '';
+      items.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'product-card';
+        div.innerHTML = `
+          <div class="product-img">${p.icon}</div>
+          <div class="product-title">${p.name}</div>
+          <div class="product-price">¥${p.price.toLocaleString()}</div>
+          <button onclick="addToCart('${p.id}', 1)" style="margin-top: auto;">カートに追加</button>
+        `;
+        grid.appendChild(div);
+      });
+    }
+
+    function handleSearch() {
+      const q = document.getElementById('searchInput').value.toLowerCase();
+      const cat = document.getElementById('categoryFilter').value;
+      const filtered = products.filter(p => {
+        const matchQ = !q || p.name.toLowerCase().includes(q);
+        const matchCat = !cat || p.category === cat;
+        return matchQ && matchCat;
+      });
+      renderProducts(filtered);
+      return filtered;
+    }
+
+    function addToCart(productId, qty = 1) {
+      const prod = products.find(p => p.id === productId);
+      if (!prod) return;
+      cart.push({ ...prod, qty });
+      updateCartUI();
+    }
+
+    function updateCartUI() {
+      document.getElementById('cartCount').textContent = cart.length;
+      const list = document.getElementById('cartItemsList');
+      if (cart.length === 0) {
+        list.innerHTML = '<li>カートは空です</li>';
+        return;
+      }
+      list.innerHTML = cart.map(item => `<li>${item.name} × ${item.qty} (¥${(item.price * item.qty).toLocaleString()})</li>`).join('');
+    }
+
+    function checkout() {
+      if (cart.length === 0) {
+        alert('カートが空です');
+        return null;
+      }
+      const orderId = 'ORD-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      const total = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
+      alert('注文が完了しました！注文番号: ' + orderId + ', 合計金額: ¥' + total.toLocaleString());
+      const details = { orderId, itemsCount: cart.length, total };
+      cart = [];
+      updateCartUI();
+      return details;
+    }
+
+    renderProducts(products);
+
+    // ==========================================
+    // Register WebMCP Tools
+    // ==========================================
+    async function initWebMCP() {
+      const modelContext = document.modelContext || navigator.modelContext;
+      if (!modelContext || typeof modelContext.registerTool !== 'function') return;
+
+      // Tool 1: search_products
+      await modelContext.registerTool({
+        name: "search_products",
+        description: "Gadget Hubのストア内で商品をキーワードやカテゴリーで検索します。",
+        inputSchema: {
+          type: "object",
+          properties: {
+            keyword: { type: "string", description: "検索キーワード (例: USB-C, キーボード)" },
+            category: { type: "string", description: "カテゴリー (accessories, audio, input)" }
+          }
+        },
+        async execute(args) {
+          if (args.keyword !== undefined) document.getElementById('searchInput').value = args.keyword;
+          if (args.category !== undefined) document.getElementById('categoryFilter').value = args.category;
+          const matched = handleSearch();
+          return {
+            keyword: args.keyword,
+            totalFound: matched.length,
+            products: matched.map(p => ({ id: p.id, name: p.name, price: p.price }))
+          };
+        }
+      });
+
+      // Tool 2: add_to_cart
+      await modelContext.registerTool({
+        name: "add_to_cart",
+        description: "指定した商品IDをショッピングカートに追加します。",
+        inputSchema: {
+          type: "object",
+          properties: {
+            productId: { type: "string", description: "追加する商品のID (例: p_hub, p_mech_kb, p_anc_buds)" },
+            quantity: { type: "number", description: "追加個数 (デフォルト 1)" }
+          },
+          required: ["productId"]
+        },
+        async execute(args) {
+          const qty = args.quantity || 1;
+          addToCart(args.productId, qty);
+          const p = products.find(x => x.id === args.productId);
+          return {
+            success: true,
+            addedItem: p ? p.name : '',
+            cartItemsCount: cart.length
+          };
+        }
+      });
+
+      // Tool 3: checkout_cart
+      await modelContext.registerTool({
+        name: "checkout_cart",
+        description: "カート内の商品を決済・注文確定します（注文確定処理）。",
+        inputSchema: {
+          type: "object",
+          properties: {
+            confirm: { type: "boolean", description: "注文を確定することに同意するか" }
+          },
+          required: ["confirm"]
+        },
+        async execute(args) {
+          if (!args.confirm) {
+            throw new Error("注文確定フラグ confirm が true ではありません。");
+          }
+          const order = checkout();
+          if (!order) throw new Error("カートが空のため注文できませんでした。");
+          return {
+            status: "success",
+            order
+          };
+        }
+      });
+    }
+
+    window.addEventListener('load', initWebMCP);
+    setTimeout(initWebMCP, 200);
+  </script>
+</body>
+</html>

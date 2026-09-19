@@ -1,0 +1,56 @@
+appId: com.blue1st.webmcp-deck
+productName: WebMCP Deck
+
+directories:
+  output: dist
+  buildResources: resources
+
+files:
+  - out/**/*
+  - resources/**/*
+  - bin/**/*
+  - package.json
+
+mac:
+  icon: resources/icon.png
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  artifactName: WebMCP-Deck-${version}-${arch}.${ext}
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+win:
+  icon: resources/icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+  artifactName: WebMCP-Deck-Setup-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: WebMCP Deck

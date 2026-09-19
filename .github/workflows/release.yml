@@ -1,0 +1,156 @@
+name: Release WebMCP Deck
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Code
+        run: npm run build
+
+      - name: Package macOS (Apple Silicon & Intel)
+        if: runner.os == 'macOS'
+        run: |
+          npx electron-builder --mac --arm64 --x64 --publish never
+          cd dist
+          shasum -a 256 *.dmg *.zip > SHA256SUMS-mac.txt || true
+          cat SHA256SUMS-mac.txt || true
+
+      - name: Package Windows (x64)
+        if: runner.os == 'Windows'
+        run: |
+          npx electron-builder --win --x64 --publish never
+          cd dist
+          Get-FileHash -Algorithm SHA256 WebMCP-Deck-Setup-*.exe, *.zip | Format-List > SHA256SUMS-win.txt
+          Get-Content SHA256SUMS-win.txt
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            dist/WebMCP-Deck-*.dmg
+            dist/WebMCP-Deck-*.zip
+            dist/WebMCP-Deck-Setup-*.exe
+            dist/SHA256SUMS-*.txt
+
+  update-homebrew-tap:
+    name: Update Homebrew Tap
+    needs: build
+    runs-on: macos-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Get Version
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Download macOS Assets and Compute SHA256
+        id: shasum
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          
+          ARM_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/WebMCP-Deck-${VERSION}-arm64.dmg"
+          INTEL_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/WebMCP-Deck-${VERSION}-x64.dmg"
+          
+          echo "Downloading $ARM_URL ..."
+          curl -sL --retry 3 --fail "$ARM_URL" -o arm64.dmg
+          ARM_SHA=$(shasum -a 256 arm64.dmg | awk '{print $1}')
+          
+          echo "Downloading $INTEL_URL ..."
+          curl -sL --retry 3 --fail "$INTEL_URL" -o intel.dmg
+          INTEL_SHA=$(shasum -a 256 intel.dmg | awk '{print $1}')
+          
+          echo "ARM64_SHA=$ARM_SHA" >> $GITHUB_OUTPUT
+          echo "INTEL_SHA=$INTEL_SHA" >> $GITHUB_OUTPUT
+
+      - name: Generate Cask Ruby File
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARM_SHA="${{ steps.shasum.outputs.ARM64_SHA }}"
+          INTEL_SHA="${{ steps.shasum.outputs.INTEL_SHA }}"
+          
+          mkdir -p Casks
+          cat <<EOF > Casks/webmcp-deck.rb
+          cask "webmcp-deck" do
+            arch arm: "arm64", intel: "x64"
+
+            version "${VERSION}"
+            sha256 arm:   "${ARM_SHA}",
+                   intel: "${INTEL_SHA}"
+
+            url "https://github.com/blue1st/webmcp-deck/releases/download/v#{version}/WebMCP-Deck-#{version}-#{arch}.dmg"
+            name "WebMCP Deck"
+            desc "WebMCP Client & Desktop Browser for AI Agents"
+            homepage "https://github.com/blue1st/webmcp-deck"
+
+            app "WebMCP Deck.app"
+
+            zap trash: [
+              "~/Library/Application Support/webmcp-deck",
+              "~/Library/Preferences/com.blue1st.webmcp-deck.plist",
+              "~/Library/Saved Application State/com.blue1st.webmcp-deck.savedState",
+            ]
+          end
+          EOF
+          
+          cat Casks/webmcp-deck.rb
+
+      - name: Push Cask to blue1st/homebrew-taps
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "⚠️ HOMEBREW_TAP_TOKEN is not set in Secrets. Skipping automated push to blue1st/homebrew-taps."
+            echo "Please manually add the Casks/webmcp-deck.rb contents printed above to your homebrew-taps repo."
+            exit 0
+          fi
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git clone https://x-access-token:${TAP_TOKEN}@github.com/blue1st/homebrew-taps.git tap_repo
+          mkdir -p tap_repo/Casks
+          cp Casks/webmcp-deck.rb tap_repo/Casks/webmcp-deck.rb
+          cd tap_repo
+          git add Casks/webmcp-deck.rb
+          if git diff --staged --quiet; then
+            echo "No changes in Cask file."
+          else
+            git commit -m "Update webmcp-deck to v${{ steps.version.outputs.version }}"
+            git push origin main || git push origin master
+            echo "✅ Successfully updated blue1st/homebrew-taps with WebMCP Deck v${{ steps.version.outputs.version }}!"
+          fi

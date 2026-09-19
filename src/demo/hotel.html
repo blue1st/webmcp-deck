@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ホテル グラン・ホライゾン東京 (WebMCP Enabled)</title>
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-hover: #0369a1;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: white;
+      padding: 1.5rem 2rem;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid #10b981;
+      color: #34d399;
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      margin-left: 0.5rem;
+    }
+    main {
+      max-width: 960px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+    }
+    .search-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      align-items: end;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.65rem 1.25rem;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    button:hover { background: var(--primary-hover); }
+    .rooms-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+    .room-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      transition: transform 0.15s, border-color 0.15s;
+      display: flex;
+      flex-direction: column;
+    }
+    .room-card.selected {
+      border: 2px solid var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.15);
+    }
+    .room-img {
+      height: 140px;
+      background: #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #64748b;
+      font-size: 2rem;
+    }
+    .room-content {
+      padding: 1rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .room-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+    .room-price {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+    }
+    .room-features {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      flex: 1;
+    }
+    .status-toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: #0f172a;
+      color: white;
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: none;
+      animation: fadeIn 0.2s ease-out;
+      border-left: 4px solid var(--accent);
+      z-index: 100;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .reserve-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+    .reserve-modal.open {
+      display: flex;
+    }
+    .modal-box {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      width: 90%;
+      max-width: 440px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ホテル グラン・ホライゾン東京 <span class="badge">● WebMCP Ready</span></h1>
+    <p style="opacity: 0.8; font-size: 0.9rem; margin-top: 0.25rem;">AIエージェントによる検索・選択・予約に標準対応しています</p>
+  </header>
+
+  <main>
+    <div class="search-panel">
+      <div class="form-grid">
+        <div>
+          <label>チェックイン日</label>
+          <input type="date" id="dateInput" value="2026-10-01">
+        </div>
+        <div>
+          <label>上限予算 (1泊)</label>
+          <select id="budgetInput">
+            <option value="999999">指定なし</option>
+            <option value="12000">〜 12,000円</option>
+            <option value="16000" selected>〜 16,000円</option>
+            <option value="25000">〜 25,000円</option>
+          </select>
+        </div>
+        <div>
+          <button id="searchBtn" style="width: 100%;">空室を検索</button>
+        </div>
+      </div>
+    </div>
+
+    <h2 style="margin-bottom: 1rem; font-size: 1.25rem;">利用可能な客室</h2>
+    <div class="rooms-list" id="roomsContainer">
+      <!-- Dynamic Room Cards -->
+    </div>
+  </main>
+
+  <div class="reserve-modal" id="reserveModal">
+    <div class="modal-box">
+      <h3 style="margin-bottom: 0.75rem;">宿泊予約の確定</h3>
+      <div style="margin-bottom: 1rem; font-size: 0.9rem; color: #475569;" id="modalRoomInfo"></div>
+      <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.25rem;">
+        <div>
+          <label>宿泊代表者氏名</label>
+          <input type="text" id="guestName" placeholder="例: 山田 太郎" value="山田 太郎">
+        </div>
+        <div>
+          <label>連絡先メールアドレス</label>
+          <input type="email" id="guestEmail" placeholder="taro@example.com" value="taro@example.com">
+        </div>
+      </div>
+      <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+        <button onclick="closeModal()" style="background: #94a3b8;">キャンセル</button>
+        <button onclick="confirmBooking()" style="background: var(--accent);">予約を確定する</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-toast" id="toast"></div>
+
+  <script>
+    const roomsData = [
+      { id: "room_std_single", name: "スタンダード・シングル", price: 11000, features: "Wi-Fi完備, ワークデスク, 禁煙", icon: "🛏️" },
+      { id: "room_std_double", name: "スーペリア・ダブル", price: 15500, features: "クイーンベッド, シティビュー, 朝食付", icon: "🏙️" },
+      { id: "room_deluxe_twin", name: "デラックス・ツイン", price: 22000, features: "高層階, バスタブ独立, ラウンジアクセス", icon: "✨" },
+      { id: "room_exec_suite", name: "エグゼクティブ・スイート", price: 45000, features: "最上階パノラマビュー, 専用コンシェルジュ", icon: "👑" }
+    ];
+
+    let currentSelectedRoom = null;
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    function renderRooms(filterBudget = 999999) {
+      const container = document.getElementById('roomsContainer');
+      container.innerHTML = '';
+      const filtered = roomsData.filter(r => r.price <= filterBudget);
+      filtered.forEach(room => {
+        const card = document.createElement('div');
+        card.className = 'room-card ' + (currentSelectedRoom === room.id ? 'selected' : '');
+        card.id = 'card-' + room.id;
+        card.innerHTML = `
+          <div class="room-img">${room.icon}</div>
+          <div class="room-content">
+            <div class="room-title">${room.name}</div>
+            <div class="room-price">¥${room.price.toLocaleString()} <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">/ 泊</span></div>
+            <div class="room-features">${room.features}</div>
+            <button onclick="selectRoom('${room.id}')" style="width: 100%;">${currentSelectedRoom === room.id ? '✓ 選択中' : 'この部屋を選択'}</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+      return filtered;
+    }
+
+    function selectRoom(roomId) {
+      currentSelectedRoom = roomId;
+      const room = roomsData.find(r => r.id === roomId);
+      renderRooms(parseInt(document.getElementById('budgetInput').value, 10));
+      if (room) {
+        showToast('「' + room.name + '」を選択しました');
+      }
+    }
+
+    function openBookingModal() {
+      if (!currentSelectedRoom) {
+        showToast('部屋を先に選択してください');
+        return;
+      }
+      const room = roomsData.find(r => r.id === currentSelectedRoom);
+      document.getElementById('modalRoomInfo').textContent = '選択中の部屋: ' + room.name + ' (¥' + room.price.toLocaleString() + ' / 泊)';
+      document.getElementById('reserveModal').classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('reserveModal').classList.remove('open');
+    }
+
+    function confirmBooking(name, email) {
+      const room = roomsData.find(r => r.id === currentSelectedRoom);
+      const gName = name || document.getElementById('guestName').value;
+      const gEmail = email || document.getElementById('guestEmail').value;
+      closeModal();
+      showToast('🎉 予約完了！' + gName + ' 様, ' + (room ? room.name : '') + ' の予約を受け付けました。');
+      return {
+        bookingId: 'BK-' + Math.random().toString(36).substring(2, 9).toUpperCase(),
+        room: room ? room.name : '',
+        guestName: gName,
+        checkinDate: document.getElementById('dateInput').value,
+        totalPrice: room ? room.price : 0
+      };
+    }
+
+    document.getElementById('searchBtn').addEventListener('click', () => {
+      const budget = parseInt(document.getElementById('budgetInput').value, 10);
+      renderRooms(budget);
+    });
+
+    renderRooms(16000);
+
+    // ==========================================
+    // Register WebMCP Tools (document.modelContext)
+    // ==========================================
+    async function initWebMCP() {
+      const modelContext = document.modelContext || navigator.modelContext;
+      if (!modelContext || typeof modelContext.registerTool !== 'function') {
+        console.warn('WebMCP modelContext is not available yet.');
+        return;
+      }
+
+      // 1. Tool: search_rooms
+      await modelContext.registerTool({
+        name: "search_rooms",
+        description: "指定した日付と予算上限に基づいてホテルの空室を検索し、一覧を表示します。",
+        inputSchema: {
+          type: "object",
+          properties: {
+            date: { type: "string", description: "チェックイン日 (YYYY-MM-DD 形式)" },
+            maxPrice: { type: "number", description: "1泊あたりの上限予算(円)" }
+          },
+          required: ["date"]
+        },
+        async execute(args) {
+          if (args.date) {
+            document.getElementById('dateInput').value = args.date;
+          }
+          const budget = args.maxPrice !== undefined ? Number(args.maxPrice) : 999999;
+          document.getElementById('budgetInput').value = String(budget);
+          const matched = renderRooms(budget);
+          showToast('WebMCP: ' + args.date + ' の部屋を ' + matched.length + ' 件検索しました');
+          return {
+            date: args.date,
+            foundRoomsCount: matched.length,
+            rooms: matched.map(r => ({ id: r.id, name: r.name, price: r.price }))
+          };
+        }
+      });
+
+      // 2. Tool: select_room
+      await modelContext.registerTool({
+        name: "select_room",
+        description: "一覧の中から特定の部屋IDを指定して選択状態にします。",
+        inputSchema: {
+          type: "object",
+          properties: {
+            roomId: {
+              type: "string",
+              description: "選択する部屋ID (例: room_std_single, room_std_double, room_deluxe_twin, room_exec_suite)"
+            }
+          },
+          required: ["roomId"]
+        },
+        async execute(args) {
+          selectRoom(args.roomId);
+          const room = roomsData.find(r => r.id === args.roomId);
+          if (!room) {
+            throw new Error('部屋ID ' + args.roomId + ' が見つかりませんでした。');
+          }
+          return {
+            status: "selected",
+            room: { id: room.id, name: room.name, price: room.price }
+          };
+        }
+      });
+
+      // 3. Tool: submit_reservation
+      await modelContext.registerTool({
+        name: "submit_reservation",
+        description: "選択中の部屋で宿泊予約を確定します（個人情報送信・予約確定処理）。",
+        inputSchema: {
+          type: "object",
+          properties: {
+            guestName: { type: "string", description: "宿泊代表者の氏名" },
+            guestEmail: { type: "string", description: "確認メール送信用アドレス" }
+          },
+          required: ["guestName", "guestEmail"]
+        },
+        async execute(args) {
+          if (!currentSelectedRoom) {
+            throw new Error("予約対象の部屋が選択されていません。先に select_room を実行してください。");
+          }
+          const result = confirmBooking(args.guestName, args.guestEmail);
+          return {
+            status: "confirmed",
+            details: result
+          };
+        }
+      });
+
+      console.log('WebMCP: All hotel tools successfully registered!');
+    }
+
+    window.addEventListener('load', initWebMCP);
+    setTimeout(initWebMCP, 200);
+  </script>
+</body>
+</html>

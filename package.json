@@ -1,0 +1,50 @@
+{
+  "name": "webmcp-deck",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "WebMCP Client & Desktop Browser for AI Agents",
+  "author": "blue1st",
+  "license": "MIT",
+  "homepage": "https://github.com/blue1st/webmcp-deck",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blue1st/webmcp-deck.git"
+  },
+  "main": "out/main/main.js",
+  "bin": {
+    "deck-mcp-bridge": "./bin/deck-mcp-bridge.mjs"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
+    "pack": "electron-vite build && electron-builder --dir",
+    "dist": "electron-vite build && electron-builder",
+    "dist:mac": "electron-vite build && electron-builder --mac",
+    "dist:win": "electron-vite build && electron-builder --win",
+    "release": "release-it"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.16.0",
+    "tailwind-merge": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.1.0",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "electron": "^35.1.2",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^3.1.0",
+    "postcss": "^8.5.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "release-it": "^18.1.2",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.0"
+  }
+}
