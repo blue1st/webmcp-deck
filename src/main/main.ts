@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, MenuItem, clipboard } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, MenuItem, clipboard, shell } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
 import * as http from 'http'
@@ -8,7 +8,7 @@ import { spawn } from 'child_process'
 import { JsonStore } from './store'
 import { LocalDemoServer } from './localDemoServer'
 import { McpServer } from './mcp-server'
-import { SkillDefinition, SkillParameter, SkillStep } from '../renderer/src/types'
+import { SkillDefinition, SkillParameter, SkillStep, AppUpdateInfo } from '../renderer/src/types'
 
 // 1. Enable Chromium WebMCP Experimental Flags
 app.commandLine.appendSwitch('enable-features', 'WebMCPTesting')
@@ -23,6 +23,118 @@ const pendingMcpToolCalls = new Map<
   string,
   { resolve: (val: any) => void; reject: (err: any) => void; timer: NodeJS.Timeout }
 >()
+
+let cachedUpdateInfo: {
+  timestamp: number
+  data: AppUpdateInfo
+} | null = null
+
+function isNewerVersion(current: string, latest: string): boolean {
+  const parse = (v: string) => v.replace(/^v/, '').split('.').map((n) => parseInt(n, 10) || 0)
+  const c = parse(current)
+  const l = parse(latest)
+  for (let i = 0; i < Math.max(c.length, l.length); i++) {
+    const cVal = c[i] || 0
+    const lVal = l[i] || 0
+    if (lVal > cVal) return true
+    if (lVal < cVal) return false
+  }
+  return false
+}
+
+async function fetchLatestReleaseFromGitHub(): Promise<{
+  latestVersion: string
+  releaseUrl: string
+  publishedAt: string
+  releaseNotes: string
+}> {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api.github.com',
+      path: '/repos/blue1st/webmcp-deck/releases/latest',
+      headers: {
+        'User-Agent': 'WebMCP-Deck-Client',
+        Accept: 'application/vnd.github.v3+json'
+      }
+    }
+
+    const req = https.get(options, (res) => {
+      let body = ''
+      res.on('data', (chunk) => {
+        body += chunk
+      })
+      res.on('end', () => {
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const data = JSON.parse(body)
+            const tagName = data.tag_name || 'v1.0.0'
+            resolve({
+              latestVersion: tagName.replace(/^v/, ''),
+              releaseUrl: data.html_url || 'https://github.com/blue1st/webmcp-deck/releases',
+              publishedAt: data.published_at || '',
+              releaseNotes: data.body || ''
+            })
+          } catch (e: any) {
+            reject(new Error(`Failed to parse GitHub release JSON: ${e.message}`))
+          }
+        } else if (res.statusCode === 404) {
+          resolve({
+            latestVersion: app.getVersion(),
+            releaseUrl: 'https://github.com/blue1st/webmcp-deck/releases',
+            publishedAt: new Date().toISOString(),
+            releaseNotes: 'No releases published yet.'
+          })
+        } else {
+          reject(new Error(`GitHub API returned HTTP ${res.statusCode}`))
+        }
+      })
+    })
+
+    req.on('error', (err) => {
+      reject(err)
+    })
+    req.setTimeout(8000, () => {
+      req.destroy()
+      reject(new Error('GitHub API request timed out'))
+    })
+  })
+}
+
+async function getUpdateStatus(force = false): Promise<AppUpdateInfo> {
+  const currentVersion = app.getVersion()
+  const ONE_DAY = 24 * 60 * 60 * 1000
+  const now = Date.now()
+
+  if (!force && cachedUpdateInfo && now - cachedUpdateInfo.timestamp < ONE_DAY) {
+    return cachedUpdateInfo.data
+  }
+
+  try {
+    const release = await fetchLatestReleaseFromGitHub()
+    const hasUpdate = isNewerVersion(currentVersion, release.latestVersion)
+    const result: AppUpdateInfo = {
+      currentVersion,
+      latestVersion: release.latestVersion,
+      hasUpdate,
+      releaseUrl: release.releaseUrl,
+      publishedAt: release.publishedAt,
+      releaseNotes: release.releaseNotes,
+      lastCheckedAt: now
+    }
+    cachedUpdateInfo = { timestamp: now, data: result }
+    return result
+  } catch (err: any) {
+    const fallback: AppUpdateInfo = {
+      currentVersion,
+      latestVersion: cachedUpdateInfo?.data?.latestVersion || currentVersion,
+      hasUpdate: cachedUpdateInfo?.data?.hasUpdate || false,
+      releaseUrl: 'https://github.com/blue1st/webmcp-deck/releases',
+      lastCheckedAt: cachedUpdateInfo?.data?.lastCheckedAt || now,
+      error: err.message || '更新の確認に失敗しました'
+    }
+    return fallback
+  }
+}
 
 function resolvePreloadPath(filename: string): string {
   const candidates = [
@@ -319,6 +431,11 @@ function registerIpcHandlers() {
   ipcMain.handle('deck:get-chrome-bookmarks', () => {
     return loadChromeBookmarks()
   })
+
+  // App Version & Update Checker
+  ipcMain.handle('deck:get-app-version', () => app.getVersion())
+  ipcMain.handle('deck:check-for-updates', (_e, force?: boolean) => getUpdateStatus(force))
+  ipcMain.handle('deck:open-external', (_e, url: string) => shell.openExternal(url))
 
 function getChromeBookmarksPaths(): string[] {
   const home = app.getPath('home')

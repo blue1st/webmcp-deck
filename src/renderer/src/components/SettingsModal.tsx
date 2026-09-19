@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { LLMConfig, McpServerStatus } from '../types'
+import appIcon from '../assets/app-icon.jpg'
+import { LLMConfig, McpServerStatus, AppUpdateInfo } from '../types'
 import {
   X,
   Check,
@@ -15,7 +16,12 @@ import {
   Radio,
   Terminal,
   Server,
-  Sliders
+  Sliders,
+  Info,
+  ExternalLink,
+  Sparkles,
+  CheckCircle2,
+  GitBranch
 } from 'lucide-react'
 
 interface SettingsModalProps {
@@ -32,7 +38,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSave
 }) => {
   const [formData, setFormData] = useState<LLMConfig>(config)
-  const [activeTab, setActiveTab] = useState<'llm' | 'browser' | 'mcp'>('llm')
+  const [activeTab, setActiveTab] = useState<'llm' | 'browser' | 'mcp' | 'about'>('llm')
   const [testing, setTesting] = useState(false)
   const [fetchingModels, setFetchingModels] = useState(false)
   const [availableModels, setAvailableModels] = useState<string[]>([])
@@ -41,6 +47,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   )
   const [mcpStatus, setMcpStatus] = useState<McpServerStatus | null>(null)
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null)
+  const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo | null>(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
 
   const fetchMcpStatus = async () => {
     try {
@@ -53,12 +61,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }
 
+  const handleCheckUpdate = async (force = false) => {
+    setCheckingUpdate(true)
+    try {
+      if ((window as any).electronAPI?.checkForUpdates) {
+        const info = await (window as any).electronAPI.checkForUpdates(force)
+        setUpdateInfo(info)
+      }
+    } catch (err) {
+      console.warn('Update check failed:', err)
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
+
+  const handleOpenUrl = (url: string) => {
+    if ((window as any).electronAPI?.openExternal) {
+      ;(window as any).electronAPI.openExternal(url)
+    } else {
+      window.open(url, '_blank')
+    }
+  }
+
   // Sync formData when modal opens or config updates
   useEffect(() => {
     if (isOpen) {
       setFormData(config)
       setTestResult(null)
       fetchMcpStatus()
+      handleCheckUpdate(false)
       // Auto fetch models if baseUrl is provided
       if (config.baseUrl) {
         fetchModels(config.baseUrl, config.apiKey)
@@ -218,6 +249,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <span>MCP 連携</span>
             {mcpStatus?.running && (
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('about')}
+            className={`flex items-center gap-2 pb-2.5 px-3 text-xs font-medium border-b-2 transition-all ${
+              activeTab === 'about'
+                ? 'border-indigo-400 text-indigo-300 font-semibold'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Info size={14} />
+            <span>情報</span>
+            {updateInfo?.hasUpdate && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block animate-pulse" />
             )}
           </button>
         </div>
@@ -575,6 +621,126 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </>
                         )}
                       </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Page 4: About WebMCP Deck */}
+            {activeTab === 'about' && (
+              <div className="space-y-4 animate-in fade-in duration-150">
+                {/* Hero App Branding Card */}
+                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center gap-3.5">
+                  <img
+                    src={appIcon}
+                    alt="WebMCP Deck"
+                    className="w-12 h-12 rounded-xl shadow-md object-cover ring-1 ring-slate-700/60 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-sm text-slate-100">WebMCP Deck</h4>
+                      <span className="px-2 py-0.5 rounded-full bg-indigo-950/80 border border-indigo-800/60 text-indigo-300 font-mono text-[10px] font-semibold">
+                        v{updateInfo?.currentVersion || '1.0.0'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                      WebMCP Client & Desktop Browser for AI Agents
+                    </p>
+                  </div>
+                </div>
+
+                {/* Update Checker Card */}
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold text-xs text-slate-200 flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-amber-400" />
+                      バージョン・更新状況
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCheckUpdate(true)}
+                      disabled={checkingUpdate}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-[11px] font-medium transition-colors flex items-center gap-1.5"
+                    >
+                      <RefreshCw size={11} className={checkingUpdate ? 'animate-spin' : ''} />
+                      <span>{checkingUpdate ? '確認中...' : '更新を確認'}</span>
+                    </button>
+                  </div>
+
+                  {checkingUpdate ? (
+                    <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800 text-slate-400 text-[11px] flex items-center gap-2">
+                      <RefreshCw size={13} className="animate-spin text-indigo-400 shrink-0" />
+                      <span>GitHub Releases から最新バージョンを確認しています...</span>
+                    </div>
+                  ) : updateInfo?.hasUpdate ? (
+                    <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-800/60 text-amber-200 text-[11px] space-y-2">
+                      <div className="flex items-center gap-2 font-semibold text-amber-300">
+                        <Sparkles size={14} className="shrink-0 text-amber-400" />
+                        <span>新しいバージョン (v{updateInfo.latestVersion}) が利用可能です！</span>
+                      </div>
+                      <p className="text-slate-300 text-[11px] leading-relaxed">
+                        GitHub Releases ページまたは Homebrew (`brew upgrade --cask webmcp-deck`) からアップデートできます。
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleOpenUrl(
+                            updateInfo.releaseUrl || 'https://github.com/blue1st/webmcp-deck/releases'
+                          )
+                        }
+                        className="mt-1 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                      >
+                        <ExternalLink size={12} />
+                        <span>リリースノートを見る</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800/80 text-[11px] space-y-1">
+                      <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                        <CheckCircle2 size={13} className="shrink-0" />
+                        <span>お使いの WebMCP Deck は最新です (v{updateInfo?.currentVersion || '1.0.0'})</span>
+                      </div>
+                      <div className="text-slate-500 text-[10px]">
+                        最終確認: {updateInfo?.lastCheckedAt ? new Date(updateInfo.lastCheckedAt).toLocaleString('ja-JP') : '未確認'} (1日1回自動確認)
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Project Links Card */}
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2.5">
+                  <div className="font-semibold text-xs text-slate-300">
+                    リンク & プロジェクト情報
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenUrl('https://github.com/blue1st/webmcp-deck')}
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/80 hover:bg-slate-800/80 border border-slate-800/80 text-slate-200 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <GitBranch size={13} className="text-indigo-400" />
+                        <span>GitHub リポジトリ (blue1st/webmcp-deck)</span>
+                      </div>
+                      <ExternalLink size={12} className="text-slate-500" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenUrl('https://github.com/blue1st/homebrew-taps')}
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/80 hover:bg-slate-800/80 border border-slate-800/80 text-slate-200 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Globe size={13} className="text-cyan-400" />
+                        <span>Homebrew Tap (blue1st/homebrew-taps)</span>
+                      </div>
+                      <ExternalLink size={12} className="text-slate-500" />
+                    </button>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
+                      <span>作者: blue1st</span>
+                      <span>ライセンス: MIT License</span>
                     </div>
                   </div>
                 </div>

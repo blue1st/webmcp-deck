@@ -59,6 +59,17 @@ export interface McpServerStatus {
   bridgePath: string
 }
 
+export interface AppUpdateInfo {
+  currentVersion: string
+  latestVersion: string
+  hasUpdate: boolean
+  releaseUrl?: string
+  publishedAt?: string
+  releaseNotes?: string
+  lastCheckedAt?: number
+  error?: string
+}
+
 // Chat Messages
 export interface ToolCallItem {
   id: string

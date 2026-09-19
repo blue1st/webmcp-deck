@@ -52,6 +52,9 @@ export interface ElectronAPI {
   ) => () => void
   sendMcpExecuteToolResult: (data: { callId: string; result?: any; error?: string }) => void
   onMcpNavigate: (callback: (url: string) => void) => () => void
+  getAppVersion: () => Promise<string>
+  checkForUpdates: (force?: boolean) => Promise<import('../renderer/src/types').AppUpdateInfo>
+  openExternal: (url: string) => Promise<void>
 }
 
 const api: ElectronAPI = {
@@ -78,7 +81,10 @@ const api: ElectronAPI = {
     const listener = (_e: any, url: string) => callback(url)
     ipcRenderer.on('deck:mcp-navigate', listener)
     return () => ipcRenderer.removeListener('deck:mcp-navigate', listener)
-  }
+  },
+  getAppVersion: () => ipcRenderer.invoke('deck:get-app-version'),
+  checkForUpdates: (force) => ipcRenderer.invoke('deck:check-for-updates', force),
+  openExternal: (url) => ipcRenderer.invoke('deck:open-external', url)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)
