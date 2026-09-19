@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import appIcon from '../assets/app-icon.jpg'
+import appIcon from '../assets/app-icon.png'
 import {
   ArrowLeft,
   ArrowRight,
@@ -135,7 +135,7 @@ export const Header: React.FC<HeaderProps> = ({
           <img
             src={appIcon}
             alt="WebMCP Deck"
-            className="w-8 h-8 rounded-lg shadow-sm object-cover ring-1 ring-slate-700/60"
+            className="w-8 h-8 object-contain drop-shadow-sm"
           />
           <span className="font-bold text-sm tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent hidden lg:inline">
             WebMCP Deck

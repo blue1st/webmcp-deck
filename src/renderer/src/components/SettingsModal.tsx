@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import appIcon from '../assets/app-icon.jpg'
+import appIcon from '../assets/app-icon.png'
 import { LLMConfig, McpServerStatus, AppUpdateInfo } from '../types'
 import {
   X,
@@ -635,7 +635,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <img
                     src={appIcon}
                     alt="WebMCP Deck"
-                    className="w-12 h-12 rounded-xl shadow-md object-cover ring-1 ring-slate-700/60 shrink-0"
+                    className="w-12 h-12 object-contain drop-shadow-md shrink-0"
                   />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
