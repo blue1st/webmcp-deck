@@ -1,7 +1,51 @@
 # WebMCP Deck
 
 > **WebMCP Client & Live Browser for AI Agents**  
-> Chromium標準のWebMCP（`document.modelContext` / `navigator.modelContext`）を人間が普段使いできるデスクトップブラウザに統合。さらに外部LLM（Claude Desktop, Cursor等）から実ブラウザを操作できる **MCPプロキシサーバー** を備えたAI時代のWebクライアント。
+> Chromium標準のWebMCP（`document.modelContext` / `navigator.modelContext`）を人間が普段使いできるデスクトップブラウザに統合。  
+> **「手持ちのローカルLLMを接続してWebMCPを手軽に試す」** ことも、**「外部AIエージェントからMCP経由で実ブラウザを直接コントロールする」** ことも可能な、AI時代のハイブリッドWebクライアントです。
+
+```mermaid
+flowchart LR
+    subgraph AI ["AI / LLM"]
+        LocalLLM["手持ちのローカルLLM<br/>(Ollama / LM Studio / vLLM 等)"]
+        ExternalAgent["外部AIエージェント<br/>(Claude Desktop / Cursor / Cline 等)"]
+    end
+
+    subgraph Deck ["WebMCP Deck (実ブラウザ & コックピット)"]
+        Chat["内蔵Chat UI<br/>(Human-in-the-Loop承認)"]
+        MCPServer["内蔵MCPサーバー<br/>(ポート 3939 / stdio)"]
+        Browser["Chromiumブラウザ<br/>(ログイン済み実セッション)"]
+    end
+
+    subgraph Web ["閲覧中のWebサイト"]
+        WebMCP["WebMCP Tools<br/>(document.modelContext)"]
+    end
+
+    LocalLLM <-->|"OpenAI互換API"| Chat
+    ExternalAgent <-->|"MCPプロトコル"| MCPServer
+    Chat --> Browser
+    MCPServer --> Browser
+    Browser <--> WebMCP
+```
+
+---
+
+## 🎯 2つの主要な使い方
+
+### 1. 手持ちのローカルLLMと接続してWebMCPをすぐ試す
+Ollama、LM Studio、vLLM、llama.cpp など、手元で動いているローカルLLM（OpenAI互換エンドポイント）を指定するだけで、WebMCP対応サイトを即座に操作・テストできます。
+
+* **APIキー不要・完全ローカル動作**: 外部クラウドにデータを送信せず、ローカルLLMの推論のみで安全にWebMCPツールを呼び出せます。
+* **モデル自動検出**: Base URL（例: `http://localhost:11434/v1`）を入力して「取得」ボタンを押すと、ロードされているモデル一覧を自動取得して選択できます。
+* **すぐに試せる内蔵デモ**: アプリ内にWebMCP対応のデモサイト（ホテル予約・ECカート等）を同梱しており、外部サイトを用意しなくてもすぐにツール呼び出しや対話フローを体験できます。
+* **Human-in-the-Loop（安全承認）**: 予約確定や注文などの副作用を伴うアクションは、実行前に人間が承認・拒否できる安全機構を備えています。
+
+### 2. MCPサーバーとして外部AIエージェントからコントロールする
+WebMCP Deck 自体が **MCP (Model Context Protocol) サーバー** としてバックグラウンドで動作します。
+
+* **Claude Desktop や Cursor から実ブラウザを操作**: 普段使っているエージェントにWebMCP DeckのMCPサーバーを登録するだけで、現在ブラウザで開いているWebページのWebMCPツール群がエージェントのツールとして自動的に露出します。
+* **Headlessブラウザの「ログイン・CAPTCHAの壁」を解決**: ユーザーがWebMCP Deck上で事前にログイン（2要素認証含む）を済ませたセッションをそのまま外部エージェントが操作できるため、自動化が困難だったWebサービスも透過的に扱えます。
+* **1クリック設定コピー**: 設定画面（⚙️）の「MCP連携」タブから、Claude Desktop用やCursor用の設定JSONをワンクリックでコピーして貼り付けるだけでセットアップ完了です。
 
 ---
 
@@ -27,10 +71,9 @@ brew install --cask webmcp-deck
 * **ネイティブ右クリックメニュー**: コピー、貼り付け、要素の検証（Inspect Element）をフルサポート。
 
 ### 2. MCP サーバー機能（外部AIツール向けプロキシ）
-* WebMCP Deck 自体がローカルの **MCP (Model Context Protocol) サーバー** として動作（ポート `3939`）。
-* **Claude Desktop** や **Cursor** から、WebMCP Deck で開いているWebページのツールを透過的に呼び出せます。
-* **Headlessブラウザの壁を突破**: ユーザーが手元でログインした後の実セッションを外部AIがそのまま安全に操作可能。
-* 設定画面（⚙️）の「MCP連携」タブから、Claude Desktop 用や Cursor 用の設定JSONを1クリックでコピーできます。
+* WebMCP Deck 自体がローカルの **MCP サーバー** として動作（デフォルトポート `3939` / SSE & stdioブリッジ）。
+* **Claude Desktop** や **Cursor** から、WebMCP Deck で開いているWebページのツールを透過的に呼び出し。
+* 設定画面（⚙️）の「MCP連携」タブから設定JSONを1クリックでコピー可能。
 
 ### 3. サイト別スキル管理＆高速マクロ実行
 * LLMと対話して実行したツールの操作履歴を、引数を変数化した「スキル」として1クリック保存。
@@ -40,7 +83,7 @@ brew install --cask webmcp-deck
 ### 4. 2ペイン・コックピットUI
 * **左ペイン (Browser)**: 実ブラウザ画面。
 * **右ペイン (Cockpit)**:
-  * **Chat**: ローカルLLM（Ollama, vLLM, LM Studio等）と対話しながらページ上のタスクを実行。
+  * **Chat**: ローカルLLMと対話しながらページ上のタスクを実行（Human-in-the-Loop対応）。
   * **Inspector**: ページが公開しているWebMCPツールの定義一覧とフォームからの手動実行テスト。
   * **Skills**: 保存したサイト別自動化マクロの管理・実行。
 

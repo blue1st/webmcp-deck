@@ -169,6 +169,7 @@ async function createWindow() {
     minHeight: 700,
     title: 'WebMCP Deck',
     icon: iconPath,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: resolvePreloadPath('index'),
       webviewTag: true,
@@ -177,6 +178,10 @@ async function createWindow() {
       sandbox: false
     }
   })
+
+  if (process.platform !== 'darwin') {
+    mainWindow.removeMenu()
+  }
 
   // In electron-vite dev mode: ELECTRON_RENDERER_URL is set
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -277,6 +282,8 @@ app.whenReady().then(async () => {
     if (fs.existsSync(iconPath)) {
       app.dock.setIcon(iconPath)
     }
+  } else if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null)
   }
 
   setupContextMenu()
