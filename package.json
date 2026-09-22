@@ -1,6 +1,6 @@
 {
   "name": "webmcp-deck",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "description": "WebMCP Client & Desktop Browser for AI Agents",
   "author": "blue1st",
