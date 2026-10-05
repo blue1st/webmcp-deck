@@ -62,6 +62,41 @@ jobs:
             dist/WebMCP-Deck-Setup-*.exe
             dist/SHA256SUMS-*.txt
 
+  update-homebrew-tap:
+    name: Update Homebrew Tap
+    needs: build
+    runs-on: macos-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Get Version
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Download macOS Assets and Compute SHA256
+        id: shasum
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          
+          ARM_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/WebMCP-Deck-${VERSION}-arm64.dmg"
+          INTEL_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/WebMCP-Deck-${VERSION}-x64.dmg"
+          
+          echo "Downloading $ARM_URL ..."
+          curl -sL --retry 3 --fail "$ARM_URL" -o arm64.dmg
+          ARM_SHA=$(shasum -a 256 arm64.dmg | awk '{print $1}')
+          
+          echo "Downloading $INTEL_URL ..."
+          curl -sL --retry 3 --fail "$INTEL_URL" -o intel.dmg
+          INTEL_SHA=$(shasum -a 256 intel.dmg | awk '{print $1}')
+          
+          echo "ARM64_SHA=$ARM_SHA" >> $GITHUB_OUTPUT
+          echo "INTEL_SHA=$INTEL_SHA" >> $GITHUB_OUTPUT
+
       - name: Generate Cask Ruby File
         run: |
           VERSION="${{ steps.version.outputs.version }}"
@@ -102,7 +137,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ vars.TAP_APP_ID }}
+          app-id: ${{ vars.TAP_APP_ID || secrets.TAP_APP_ID }}
           private-key: ${{ secrets.TAP_APP_PRIVATE_KEY }}
           owner: blue1st
           repositories: homebrew-taps
