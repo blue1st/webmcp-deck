@@ -97,42 +97,6 @@ jobs:
           echo "ARM64_SHA=$ARM_SHA" >> $GITHUB_OUTPUT
           echo "INTEL_SHA=$INTEL_SHA" >> $GITHUB_OUTPUT
 
-      - name: Generate Cask Ruby File
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          ARM_SHA="${{ steps.shasum.outputs.ARM64_SHA }}"
-          INTEL_SHA="${{ steps.shasum.outputs.INTEL_SHA }}"
-          
-          mkdir -p Casks
-          cat <<EOF > Casks/webmcp-deck.rb
-          cask "webmcp-deck" do
-            arch arm: "arm64", intel: "x64"
-
-            version "${VERSION}"
-            sha256 arm:   "${ARM_SHA}",
-                   intel: "${INTEL_SHA}"
-
-            url "https://github.com/blue1st/webmcp-deck/releases/download/v#{version}/WebMCP-Deck-#{version}-#{arch}.dmg"
-            name "WebMCP Deck"
-            desc "WebMCP Client & Desktop Browser for AI Agents"
-            homepage "https://github.com/blue1st/webmcp-deck"
-
-            app "WebMCP Deck.app"
-
-            postflight_steps do
-              run "/usr/bin/xattr", args: ["-cr", "#{appdir}/WebMCP Deck.app"]
-            end
-
-            zap trash: [
-              "~/Library/Application Support/webmcp-deck",
-              "~/Library/Preferences/com.blue1st.webmcp-deck.plist",
-              "~/Library/Saved Application State/com.blue1st.webmcp-deck.savedState",
-            ]
-          end
-          EOF
-          
-          cat Casks/webmcp-deck.rb
-
       - name: Generate GitHub App Token
         id: app-token
         uses: actions/create-github-app-token@v1
@@ -142,28 +106,9 @@ jobs:
           owner: blue1st
           repositories: homebrew-taps
 
-      - name: Push Cask to blue1st/homebrew-taps
+      - name: Update Homebrew Tap
         env:
-          TAP_TOKEN: ${{ steps.app-token.outputs.token }}
+          HOMEBREW_TAP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          if [ -z "$TAP_TOKEN" ]; then
-            echo "⚠️ TAP_TOKEN is not set. Skipping automated push to blue1st/homebrew-taps."
-            echo "Please manually add the Casks/webmcp-deck.rb contents printed above to your homebrew-taps repo."
-            exit 0
-          fi
-
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          git clone https://x-access-token:${TAP_TOKEN}@github.com/blue1st/homebrew-taps.git tap_repo
-          mkdir -p tap_repo/Casks
-          cp Casks/webmcp-deck.rb tap_repo/Casks/webmcp-deck.rb
-          cd tap_repo
-          git add Casks/webmcp-deck.rb
-          if git diff --staged --quiet; then
-            echo "No changes in Cask file."
-          else
-            git commit -m "Update webmcp-deck to v${{ steps.version.outputs.version }}"
-            git push origin main || git push origin master
-            echo "✅ Successfully updated blue1st/homebrew-taps with WebMCP Deck v${{ steps.version.outputs.version }}!"
-          fi
+          chmod +x ./scripts/update-homebrew.sh
+          ./scripts/update-homebrew.sh
